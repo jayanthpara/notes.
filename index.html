@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#f7f7f5">
+<title>Notes</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+<style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{width:100%;height:100%;overflow:hidden}
+    body{font-family:-apple-system,"SF Pro Display","Segoe UI",Roboto,sans-serif;background:#f7f7f5;color:#171717}
+    button,input,textarea{font:inherit}
+    button{touch-action:manipulation}
+    .notes-app-shell{width:100%;height:100dvh;display:flex;flex-direction:column;background:#f7f7f5}
+    .notes-app-topbar{height:58px;min-height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid #e5e5e2;background:rgba(247,247,245,.97);z-index:10}
+    .notes-app-topbar-left,.notes-app-topbar-right{display:flex;align-items:center;gap:8px}
+    .notes-app-back,.notes-app-icon-btn,.notes-theme-toggle{width:38px;height:38px;border:0;border-radius:12px;background:transparent;color:#171717;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:17px}
+    .notes-app-back:hover,.notes-app-icon-btn:hover,.notes-theme-toggle:hover{background:#eaeae7}
+    .notes-app-brand{font-size:19px;font-weight:850;letter-spacing:-.6px}
+    .notes-save-state{font-size:10px;font-weight:700;color:#777;min-width:72px;text-align:right}
+    .notes-app-main{flex:1;min-height:0;display:flex;overflow:hidden}
+    .notes-list-pane{width:340px;min-width:340px;border-right:1px solid #e5e5e2;display:flex;flex-direction:column;background:#fafaf8}
+    .notes-list-head{padding:18px 16px 12px}
+    .notes-list-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .notes-list-title{font-size:27px;font-weight:850;letter-spacing:-1px}
+    .notes-new-btn{width:38px;height:38px;border:0;border-radius:12px;background:#171717;color:#fff;cursor:pointer;font-size:18px}
+    .notes-search-wrap{position:relative}.notes-search-wrap i{position:absolute;left:13px;top:13px;color:#888;font-size:13px}
+    .notes-search{width:100%;height:40px;border:0;outline:0;border-radius:12px;padding:0 13px 0 36px;background:#ededeb;color:#171717;font:inherit;font-size:13px}
+    .notes-list{flex:1;overflow-y:auto;padding:8px 10px 18px;-webkit-overflow-scrolling:touch}
+    .notes-list::-webkit-scrollbar,.notes-editor-scroll::-webkit-scrollbar{width:6px}
+    .notes-list::-webkit-scrollbar-thumb,.notes-editor-scroll::-webkit-scrollbar-thumb{background:#d3d3cf;border-radius:20px}
+    .notes-list-item{width:100%;border:0;text-align:left;background:transparent;border-radius:14px;padding:13px 12px;margin-bottom:4px;cursor:pointer;color:#171717}
+    .notes-list-item:hover{background:#eeeeeb}.notes-list-item.active{background:#e4e4df}
+    .notes-list-item-title{font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .notes-list-item-preview{font-size:11px;line-height:1.45;color:#777;margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .notes-list-item-date{font-size:9px;color:#999;margin-top:7px;font-weight:700}
+    .notes-empty{padding:35px 15px;text-align:center;color:#999;font-size:12px;line-height:1.5}
+    .notes-trash-row{padding:8px 10px 12px;border-top:1px solid #e5e5e2}
+    .notes-trash-btn{width:100%;border:0;border-radius:12px;padding:11px 12px;background:transparent;color:#666;display:flex;align-items:center;gap:9px;cursor:pointer;font-weight:750;font-size:12px;text-align:left}
+    .notes-trash-btn:hover{background:#eeeeeb;color:#171717}
+    .trash-count{margin-left:auto;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:#e5e5e2;display:inline-flex;align-items:center;justify-content:center;font-size:10px}
+    .notes-editor-pane{flex:1;min-width:0;display:flex;flex-direction:column;background:#fff}
+    .notes-editor-toolbar{height:52px;min-height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid #ededeb}
+    .notes-editor-actions{display:flex;align-items:center;gap:4px}.notes-editor-actions button{width:34px;height:34px;border:0;border-radius:10px;background:transparent;color:#666;cursor:pointer}
+    .notes-editor-actions button:hover{background:#f0f0ed;color:#171717}
+    .notes-editor-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    .notes-editor-inner{width:min(820px,100%);margin:0 auto;padding:46px 48px 110px}
+    .notes-title-input{width:100%;border:0;outline:0;resize:none;overflow:hidden;background:transparent;color:#111;font:inherit;font-size:clamp(27px,4vw,42px);line-height:1.08;font-weight:850;letter-spacing:-1.5px;margin-bottom:16px}
+    .notes-content-editor{width:100%;min-height:62vh;border:0;outline:0;resize:none;overflow:hidden;background:transparent;color:#303030;font:inherit;font-size:17px;line-height:1.75}
+    .notes-content-editor::placeholder{color:#aaa}
+    .notes-word-count{position:fixed;right:20px;bottom:16px;padding:7px 10px;border-radius:999px;background:rgba(30,30,30,.82);color:#fff;font-size:10px;font-weight:700;pointer-events:none;z-index:20}
+    .mobile-font-controls{display:none}
+    .trash-modal{position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:20px;z-index:100}
+    .trash-modal.open{display:flex}
+    .trash-dialog{width:min(620px,100%);max-height:min(760px,88dvh);display:flex;flex-direction:column;border-radius:22px;background:#fafaf8;box-shadow:0 25px 80px rgba(0,0,0,.3);overflow:hidden}
+    .trash-head{padding:18px 20px;border-bottom:1px solid #e5e5e2;display:flex;align-items:center;justify-content:space-between}
+    .trash-head h2{font-size:20px;letter-spacing:-.5px}.trash-head button{width:36px;height:36px;border:0;border-radius:10px;background:transparent;cursor:pointer}
+    .trash-head button:hover{background:#eaeae7}
+    .trash-list{padding:10px;overflow:auto}
+    .trash-item{display:flex;align-items:center;gap:12px;padding:13px;border-radius:14px}
+    .trash-item:hover{background:#eeeeeb}
+    .trash-item-info{min-width:0;flex:1}.trash-item-title{font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .trash-item-preview{font-size:11px;color:#777;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .trash-item-actions{display:flex;gap:5px}.trash-item-actions button{width:34px;height:34px;border:0;border-radius:10px;background:#e8e8e4;color:#333;cursor:pointer}
+    .trash-item-actions button:hover{background:#dcdcd7}
+    .trash-empty{padding:45px 20px;text-align:center;color:#999;font-size:13px}
+    .notes-app-shell.dark-mode{background:#101112;color:#f3f3f0}
+    .dark-mode .notes-app-topbar{background:rgba(16,17,18,.97);border-bottom-color:#292a2b}
+    .dark-mode .notes-app-back,.dark-mode .notes-app-icon-btn,.dark-mode .notes-theme-toggle{color:#f3f3f0}
+    .dark-mode .notes-app-back:hover,.dark-mode .notes-app-icon-btn:hover,.dark-mode .notes-theme-toggle:hover{background:#242526}
+    .dark-mode .notes-save-state{color:#929292}
+    .dark-mode .notes-list-pane{background:#151617;border-right-color:#292a2b}
+    .dark-mode .notes-search{background:#242526;color:#f3f3f0}
+    .dark-mode .notes-search::placeholder{color:#777}.dark-mode .notes-search-wrap i{color:#777}
+    .dark-mode .notes-new-btn{background:#f1f1ed;color:#111}
+    .dark-mode .notes-list-item{color:#f3f3f0}.dark-mode .notes-list-item:hover{background:#202122}.dark-mode .notes-list-item.active{background:#292a2b}
+    .dark-mode .notes-list-item-preview{color:#999}.dark-mode .notes-list-item-date{color:#707070}
+    .dark-mode .notes-trash-row{border-top-color:#292a2b}.dark-mode .notes-trash-btn{color:#aaa}.dark-mode .notes-trash-btn:hover{background:#202122;color:#f3f3f0}.dark-mode .trash-count{background:#292a2b;color:#ddd}
+    .dark-mode .notes-editor-pane{background:#101112}.dark-mode .notes-editor-toolbar{border-bottom-color:#292a2b}
+    .dark-mode .notes-editor-actions button{color:#999}.dark-mode .notes-editor-actions button:hover{background:#242526;color:#f3f3f0}
+    .dark-mode .notes-title-input{color:#f3f3f0}.dark-mode .notes-content-editor{color:#d8d8d5}.dark-mode .notes-content-editor::placeholder{color:#666}
+    .dark-mode .notes-list::-webkit-scrollbar-thumb,.dark-mode .notes-editor-scroll::-webkit-scrollbar-thumb{background:#3b3c3d}
+    .dark-mode .trash-dialog{background:#151617;color:#f3f3f0}.dark-mode .trash-head{border-bottom-color:#292a2b}.dark-mode .trash-head button{color:#ddd}.dark-mode .trash-head button:hover{background:#242526}
+    .dark-mode .trash-item:hover{background:#202122}.dark-mode .trash-item-preview{color:#888}.dark-mode .trash-item-actions button{background:#292a2b;color:#ddd}.dark-mode .trash-item-actions button:hover{background:#363738}
+    @media(max-width:760px){
+      body{overscroll-behavior:none}
+      .notes-app-topbar{height:58px;min-height:58px;padding:0 9px;position:relative}
+      .notes-app-brand{font-size:19px}.notes-save-state{font-size:9px;min-width:48px}
+      .notes-app-main{display:block;position:relative}
+      .notes-list-pane{width:100%;min-width:0;height:100%;border-right:0}
+      .notes-editor-pane{position:absolute;inset:0;transform:translate3d(100%,0,0);transition:transform .22s ease;z-index:4;height:100%}
+      .notes-editor-pane.mobile-open{transform:translate3d(0,0,0)}
+      .notes-editor-toolbar{padding:0 8px;height:54px;min-height:54px}
+      .notes-editor-inner{padding:30px 18px 120px}
+      .notes-content-editor{min-height:70dvh;line-height:1.72}
+      .notes-title-input{font-size:30px;margin-bottom:13px}
+      .notes-list-head{padding:16px 14px 9px}.notes-list-title{font-size:31px}
+      .notes-list{padding:7px 8px 10px}.notes-list-item{padding:15px 12px}
+      .notes-list-item-title{font-size:16px}.notes-list-item-preview{font-size:12px}.notes-list-item-date{font-size:10px}
+      .notes-trash-row{padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+      .notes-word-count{right:10px;bottom:calc(62px + env(safe-area-inset-bottom));font-size:10px}
+      .mobile-font-controls{display:flex;position:fixed;right:10px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:30;gap:6px;padding:5px;border-radius:14px;background:rgba(30,30,30,.82);box-shadow:0 8px 24px rgba(0,0,0,.18)}
+      .mobile-font-controls button{width:38px;height:38px;border:0;border-radius:10px;background:rgba(255,255,255,.12);color:#fff;font-size:18px;font-weight:800;cursor:pointer}
+      .mobile-font-controls button:active{transform:scale(.96)}
+      .dark-mode .mobile-font-controls{background:rgba(245,245,240,.9)}.dark-mode .mobile-font-controls button{background:rgba(0,0,0,.12);color:#111}
+      .trash-modal{padding:10px}.trash-dialog{max-height:90dvh;border-radius:20px}.trash-item{padding:12px}
+    }
+</style>
+</head>
+<body>
+<div class="notes-app-shell" id="notes-app-shell">
+<header class="notes-app-topbar">
+  <div class="notes-app-topbar-left">
+    <button class="notes-app-back" onclick="window.location.href='/'" aria-label="Back to home" title="Home"><i class="fa-solid fa-arrow-left"></i></button>
+    <div class="notes-app-brand">Notes</div>
+  </div>
+  <div class="notes-app-topbar-right">
+    <span class="notes-save-state" id="notes-save-state">Ready</span>
+    <button class="notes-theme-toggle" id="notes-theme-toggle" onclick="toggleNotesTheme()" aria-label="Toggle dark mode" title="Toggle dark mode"><i class="fa-solid fa-moon"></i></button>
+    <button class="notes-app-icon-btn" onclick="createFullNote()" aria-label="New note" title="New note"><i class="fa-solid fa-plus"></i></button>
+  </div>
+</header>
+<main class="notes-app-main">
+  <aside class="notes-list-pane">
+    <div class="notes-list-head">
+      <div class="notes-list-title-row">
+        <div class="notes-list-title">My Notes</div>
+        <button class="notes-new-btn" onclick="createFullNote()" aria-label="Create note"><i class="fa-solid fa-plus"></i></button>
+      </div>
+      <div class="notes-search-wrap">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input class="notes-search" id="full-notes-search" placeholder="Search notes..." autocomplete="off">
+      </div>
+    </div>
+    <div class="notes-list" id="full-notes-list"></div>
+    <div class="notes-trash-row">
+      <button class="notes-trash-btn" onclick="openTrash()" aria-label="Open trash">
+        <i class="fa-regular fa-trash-can"></i><span>Trash</span><span class="trash-count" id="trash-count">0</span>
+      </button>
+    </div>
+  </aside>
+  <section class="notes-editor-pane" id="notes-editor-pane">
+    <div class="notes-editor-toolbar">
+      <button class="notes-app-icon-btn" onclick="closeMobileNoteEditor()" aria-label="Back to notes" title="Back to notes"><i class="fa-solid fa-chevron-left"></i></button>
+      <div class="notes-editor-actions">
+        <button onclick="deleteFullNote()" title="Move note to Trash" aria-label="Move note to Trash"><i class="fa-regular fa-trash-can"></i></button>
+      </div>
+    </div>
+    <div class="notes-editor-scroll">
+      <div class="notes-editor-inner">
+        <textarea class="notes-title-input" id="full-note-title" rows="1" placeholder="Untitled"></textarea>
+        <textarea class="notes-content-editor" id="full-note-content" placeholder="Start writing..."></textarea>
+      </div>
+    </div>
+    <div class="notes-word-count" id="notes-word-count">0 words</div>
+  </section>
+</main>
+</div>
+
+<div class="mobile-font-controls" id="mobile-font-controls" aria-label="Mobile font size controls">
+  <button onclick="changeMobileFont(-1)" aria-label="Decrease font size" title="Decrease font size">A−</button>
+  <button onclick="changeMobileFont(1)" aria-label="Increase font size" title="Increase font size">A+</button>
+</div>
+
+<div class="trash-modal" id="trash-modal" aria-hidden="true">
+  <div class="trash-dialog" role="dialog" aria-modal="true" aria-labelledby="trash-title">
+    <div class="trash-head">
+      <h2 id="trash-title">Trash</h2>
+      <button onclick="closeTrash()" aria-label="Close trash"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="trash-list" id="trash-list"></div>
+  </div>
+</div>
+
+<script>
+const API_BASE='https://apps-node.vercel.app/api';
+async function apiFetch(path,options={}){
+  const res=await fetch(API_BASE+path,{headers:{'Content-Type':'application/json'},...options});
+  if(!res.ok){const body=await res.json().catch(()=>({}));throw new Error(body.error||`Request failed (${res.status})`);}
+  if(res.status===204)return null;
+  return res.json();
+}
+let toastTimer;
+function showApiError(msg){console.warn(msg);}
+const FULL_NOTES_STORAGE_KEY='chaos-full-notes-v2';
+const FULL_NOTES_TRASH_KEY='chaos-full-notes-trash-v1';
+const FULL_NOTES_THEME_KEY='chaos-full-notes-theme';
+const MOBILE_FONT_KEY='chaos-notes-mobile-font-size';
+let fullNotes=[],fullNotesTrash=[],fullNotesActiveId=null;
+let remoteSyncTimer=null,renderListFrame=null;
+
+function now(){return new Date().toISOString();}
+function makeFullNote(title='Untitled'){const t=now();return{id:'full-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),title,content:'',createdAt:t,updatedAt:t};}
+function normaliseNotes(v){
+  if(!Array.isArray(v))return[];
+  return v.map((n,i)=>({id:String(n.id||('full-'+i+'-'+Date.now())),title:String(n.title||'Untitled'),content:String(n.content||''),createdAt:n.createdAt||now(),updatedAt:n.updatedAt||n.createdAt||now()}));
+}
+function normaliseTrash(v){
+  return normaliseNotes(v).map(n=>({...n,deletedAt:n.deletedAt||now()}));
+}
+function localRead(key,fn){try{const r=localStorage.getItem(key);return r?fn(JSON.parse(r)):[]}catch{return[]}}
+function persistLocal(){
+  try{localStorage.setItem(FULL_NOTES_STORAGE_KEY,JSON.stringify(fullNotes));localStorage.setItem(FULL_NOTES_TRASH_KEY,JSON.stringify(fullNotesTrash));}catch{}
+}
+function setNotesSaveState(t){const e=document.getElementById('notes-save-state');if(e)e.textContent=t;}
+function queueListRender(){
+  if(renderListFrame)return;
+  renderListFrame=requestAnimationFrame(()=>{renderListFrame=null;renderFullNotesList();});
+}
+function shouldSyncAfterTyping(value){return /(?:\s|\.)$/.test(value);}
+
+async function syncFullNotes(){
+  persistLocal();setNotesSaveState('Syncing…');
+  try{
+    await apiFetch('/notes',{method:'PUT',body:JSON.stringify({
+      tabs:fullNotes.map(n=>({id:n.id,title:n.title||'Untitled',content:n.content||'',createdAt:n.createdAt,updatedAt:n.updatedAt})),
+      trash:fullNotesTrash,
+      active:fullNotesActiveId
+    })});
+    setNotesSaveState('Synced');
+  }catch{setNotesSaveState('Saved locally');}
+}
+function scheduleRemoteSync(force=false){
+  clearTimeout(remoteSyncTimer);
+  if(!force){setNotesSaveState('Saved locally');return;}
+  remoteSyncTimer=setTimeout(syncFullNotes,180);
+}
+function localMutationSync(value){
+  persistLocal();
+  if(shouldSyncAfterTyping(value))scheduleRemoteSync(true);
+  else setNotesSaveState('Saved locally');
+}
+
+async function loadFullNotes(){
+  const local=localRead(FULL_NOTES_STORAGE_KEY,normaliseNotes);
+  const trashLocal=localRead(FULL_NOTES_TRASH_KEY,normaliseTrash);
+  fullNotes=local;fullNotesTrash=trashLocal;
+  try{
+    const remote=await apiFetch('/notes');
+    if(remote&&Array.isArray(remote.tabs)){
+      if(!fullNotes.length)fullNotes=normaliseNotes(remote.tabs);
+      if(Array.isArray(remote.trash)&&!fullNotesTrash.length)fullNotesTrash=normaliseTrash(remote.trash);
+    }
+  }catch{}
+  if(!fullNotes.length)fullNotes=[makeFullNote('My First Note')];
+  persistLocal();
+}
+
+function formatDate(iso){const d=new Date(iso);if(Number.isNaN(d.getTime()))return '';const t=new Date();return d.toDateString()===t.toDateString()?d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):d.toLocaleDateString([],{day:'numeric',month:'short',year:'numeric'});}
+function query(){return(document.getElementById('full-notes-search')?.value||'').trim().toLowerCase();}
+function renderFullNotesList(){
+  const list=document.getElementById('full-notes-list');if(!list)return;
+  const q=query();
+  const filtered=fullNotes.slice().sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt)).filter(n=>!q||(n.title+' '+n.content).toLowerCase().includes(q));
+  list.innerHTML=filtered.length?filtered.map(n=>`
+    <button class="notes-list-item ${n.id===fullNotesActiveId?'active':''}" onclick="openFullNote('${esc(n.id)}')">
+      <div class="notes-list-item-title">${esc(n.title||'Untitled')}</div>
+      <div class="notes-list-item-preview">${esc((n.content||'').replace(/\s+/g,' ').trim()||'No text yet')}</div>
+      <div class="notes-list-item-date">${formatDate(n.updatedAt)}</div>
+    </button>`).join(''):'<div class="notes-empty">No notes found.<br>Tap + to create one.</div>';
+  document.getElementById('trash-count').textContent=fullNotesTrash.length;
+}
+function renderTrash(){
+  const list=document.getElementById('trash-list');if(!list)return;
+  list.innerHTML=fullNotesTrash.length?fullNotesTrash.slice().sort((a,b)=>new Date(b.deletedAt)-new Date(a.deletedAt)).map(n=>`
+    <div class="trash-item">
+      <div class="trash-item-info"><div class="trash-item-title">${esc(n.title||'Untitled')}</div><div class="trash-item-preview">${esc((n.content||'').replace(/\s+/g,' ').trim()||'No text yet')}</div></div>
+      <div class="trash-item-actions">
+        <button onclick="restoreFullNote('${esc(n.id)}')" title="Restore" aria-label="Restore"><i class="fa-solid fa-arrow-rotate-left"></i></button>
+        <button onclick="deleteTrashForever('${esc(n.id)}')" title="Delete forever" aria-label="Delete forever"><i class="fa-solid fa-trash"></i></button>
+      </div>
+    </div>`).join(''):'<div class="trash-empty">Trash is empty.</div>';
+  document.getElementById('trash-count').textContent=fullNotesTrash.length;
+}
+function autoSize(el){if(!el)return;el.style.height='auto';el.style.height=Math.max(el.scrollHeight,42)+'px';}
+function updateWordCount(){const c=document.getElementById('full-note-content')?.value||'',w=c.trim()?c.trim().split(/\s+/).length:0;document.getElementById('notes-word-count').textContent=`${w} ${w===1?'word':'words'} · ${c.length} chars`;}
+function renderEditor(){
+  const n=fullNotes.find(x=>x.id===fullNotesActiveId),t=document.getElementById('full-note-title'),c=document.getElementById('full-note-content');
+  if(!n){t.value='';c.value='';return;}
+  t.value=n.title||'';c.value=n.content||'';autoSize(t);autoSize(c);updateWordCount();
+}
+function openFullNote(id){
+  if(!fullNotes.find(n=>n.id===id))return;
+  fullNotesActiveId=id;renderFullNotesList();renderEditor();document.getElementById('notes-editor-pane').classList.add('mobile-open');setNotesSaveState('Ready');
+  if(matchMedia('(max-width:760px)').matches)setTimeout(()=>document.getElementById('full-note-content')?.focus(),230);
+}
+function createFullNote(){
+  const n=makeFullNote('Untitled');fullNotes.unshift(n);fullNotesActiveId=n.id;persistLocal();renderFullNotesList();renderEditor();document.getElementById('notes-editor-pane').classList.add('mobile-open');setNotesSaveState('Saved locally');syncFullNotes();
+  setTimeout(()=>document.getElementById('full-note-title')?.focus(),50);
+}
+function deleteFullNote(){
+  if(!fullNotesActiveId)return;const n=fullNotes.find(x=>x.id===fullNotesActiveId);if(!n)return;
+  if(!confirm(`Move "${n.title||'Untitled'}" to Trash?`))return;
+  fullNotes=fullNotes.filter(x=>x.id!==fullNotesActiveId);
+  fullNotesTrash.unshift({...n,deletedAt:now()});
+  fullNotesActiveId=fullNotes[0]?.id||null;persistLocal();renderFullNotesList();renderEditor();closeMobileNoteEditor();renderTrash();syncFullNotes();
+}
+function restoreFullNote(id){
+  const n=fullNotesTrash.find(x=>x.id===id);if(!n)return;
+  fullNotesTrash=fullNotesTrash.filter(x=>x.id!==id);delete n.deletedAt;n.updatedAt=now();fullNotes.unshift(n);fullNotesActiveId=n.id;
+  persistLocal();renderFullNotesList();renderEditor();renderTrash();closeTrash();document.getElementById('notes-editor-pane').classList.add('mobile-open');syncFullNotes();
+}
+function deleteTrashForever(id){
+  const n=fullNotesTrash.find(x=>x.id===id);if(!n)return;
+  if(!confirm(`Delete "${n.title||'Untitled'}" permanently?`))return;
+  fullNotesTrash=fullNotesTrash.filter(x=>x.id!==id);persistLocal();renderTrash();renderFullNotesList();syncFullNotes();
+}
+function openTrash(){renderTrash();document.getElementById('trash-modal').classList.add('open');document.getElementById('trash-modal').setAttribute('aria-hidden','false');}
+function closeTrash(){document.getElementById('trash-modal').classList.remove('open');document.getElementById('trash-modal').setAttribute('aria-hidden','true');}
+function closeMobileNoteEditor(){document.getElementById('notes-editor-pane').classList.remove('mobile-open');document.getElementById('full-note-content')?.blur();}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
+
+function applyNotesTheme(theme){
+  const shell=document.getElementById('notes-app-shell'),toggle=document.getElementById('notes-theme-toggle');const dark=theme==='dark';
+  shell.classList.toggle('dark-mode',dark);if(toggle)toggle.innerHTML=dark?'<i class="fa-solid fa-sun"></i>':'<i class="fa-solid fa-moon"></i>';
+  try{localStorage.setItem(FULL_NOTES_THEME_KEY,dark?'dark':'light');}catch{}
+}
+function toggleNotesTheme(){const dark=document.getElementById('notes-app-shell').classList.contains('dark-mode');applyNotesTheme(dark?'light':'dark');}
+
+let mobileFontSize=17;
+function loadMobileFont(){
+  try{mobileFontSize=Math.min(23,Math.max(15,Number(localStorage.getItem(MOBILE_FONT_KEY))||17));}catch{mobileFontSize=17;}
+  applyMobileFont();
+}
+function applyMobileFont(){
+  const c=document.getElementById('full-note-content');if(c)c.style.setProperty('--mobile-note-font',mobileFontSize+'px');
+  if(matchMedia('(max-width:760px)').matches&&c)c.style.fontSize=mobileFontSize+'px';
+  else if(c)c.style.fontSize='';
+}
+function changeMobileFont(delta){
+  if(!matchMedia('(max-width:760px)').matches)return;
+  mobileFontSize=Math.min(23,Math.max(15,mobileFontSize+delta));
+  try{localStorage.setItem(MOBILE_FONT_KEY,String(mobileFontSize));}catch{}
+  applyMobileFont();
+}
+
+document.getElementById('full-note-title').addEventListener('input',function(){
+  const n=fullNotes.find(x=>x.id===fullNotesActiveId);if(!n)return;
+  n.title=this.value;n.updatedAt=now();autoSize(this);queueListRender();localMutationSync(this.value);
+});
+document.getElementById('full-note-content').addEventListener('input',function(){
+  const n=fullNotes.find(x=>x.id===fullNotesActiveId);if(!n)return;
+  n.content=this.value;n.updatedAt=now();autoSize(this);queueListRender();updateWordCount();localMutationSync(this.value);
+});
+document.getElementById('full-note-title').addEventListener('blur',()=>syncFullNotes());
+document.getElementById('full-note-content').addEventListener('blur',()=>syncFullNotes());
+document.getElementById('full-notes-search').addEventListener('input',renderFullNotesList);
+document.getElementById('trash-modal').addEventListener('click',e=>{if(e.target.id==='trash-modal')closeTrash();});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    if(document.getElementById('trash-modal').classList.contains('open'))closeTrash();
+    else if(matchMedia('(max-width:760px)').matches&&document.getElementById('notes-editor-pane').classList.contains('mobile-open'))closeMobileNoteEditor();
+    else window.location.href='/';
+  }
+});
+window.addEventListener('resize',applyMobileFont);
+
+(async()=>{
+  let saved='light';try{saved=localStorage.getItem(FULL_NOTES_THEME_KEY)||'light';}catch{}
+  applyNotesTheme(saved);loadMobileFont();await loadFullNotes();
+  if(fullNotes.length)fullNotesActiveId=fullNotes[0].id;
+  renderFullNotesList();renderEditor();
+})();
+</script>
+</body>
+</html>

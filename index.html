@@ -101,7 +101,7 @@
       .notes-list-item-title{font-size:16px}.notes-list-item-preview{font-size:12px}.notes-list-item-date{font-size:10px}
       .notes-trash-row{padding-bottom:calc(10px + env(safe-area-inset-bottom))}
       .notes-word-count{right:10px;bottom:calc(62px + env(safe-area-inset-bottom));font-size:10px}
-      .mobile-font-controls{display:flex;position:fixed;right:10px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:30;gap:6px;padding:5px;border-radius:14px;background:rgba(30,30,30,.82);box-shadow:0 8px 24px rgba(0,0,0,.18)}
+      body.note-editing .mobile-font-controls{display:flex;position:fixed;right:10px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:30;gap:6px;padding:5px;border-radius:14px;background:rgba(30,30,30,.82);box-shadow:0 8px 24px rgba(0,0,0,.18)}
       .mobile-font-controls button{width:38px;height:38px;border:0;border-radius:10px;background:rgba(255,255,255,.12);color:#fff;font-size:18px;font-weight:800;cursor:pointer}
       .mobile-font-controls button:active{transform:scale(.96)}
       .dark-mode .mobile-font-controls{background:rgba(245,245,240,.9)}.dark-mode .mobile-font-controls button{background:rgba(0,0,0,.12);color:#111}
@@ -119,7 +119,6 @@
   <div class="notes-app-topbar-right">
     <span class="notes-save-state" id="notes-save-state">Ready</span>
     <button class="notes-theme-toggle" id="notes-theme-toggle" onclick="toggleNotesTheme()" aria-label="Toggle dark mode" title="Toggle dark mode"><i class="fa-solid fa-moon"></i></button>
-    <button class="notes-app-icon-btn" onclick="createFullNote()" aria-label="New note" title="New note"><i class="fa-solid fa-plus"></i></button>
   </div>
 </header>
 <main class="notes-app-main">
@@ -190,6 +189,7 @@ const FULL_NOTES_THEME_KEY='chaos-full-notes-theme';
 const MOBILE_FONT_KEY='chaos-notes-mobile-font-size';
 let fullNotes=[],fullNotesTrash=[],fullNotesActiveId=null;
 let remoteSyncTimer=null,renderListFrame=null;
+let mobileNoteHistoryPushed=false;
 
 function now(){return new Date().toISOString();}
 function makeFullNote(title='Untitled'){const t=now();return{id:'full-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),title,content:'',createdAt:t,updatedAt:t};}
@@ -209,7 +209,10 @@ function queueListRender(){
   if(renderListFrame)return;
   renderListFrame=requestAnimationFrame(()=>{renderListFrame=null;renderFullNotesList();});
 }
-function shouldSyncAfterTyping(value){return /(?:\s|\.)$/.test(value);}
+// Only fire a cloud sync when the user just finished a word/sentence
+// (typed a space, period, or newline) - never on every keystroke.
+const SYNC_BOUNDARY_RE=/[\s.]$/;
+function shouldSyncAfterTyping(value){return SYNC_BOUNDARY_RE.test(value);}
 
 async function syncFullNotes(){
   persistLocal();setNotesSaveState('Syncing…');
@@ -232,6 +235,11 @@ function localMutationSync(value){
   if(shouldSyncAfterTyping(value))scheduleRemoteSync(true);
   else setNotesSaveState('Saved locally');
 }
+// Safety net: if the tab is hidden/closed mid-word (before a space/period
+// triggered a sync), flush once so nothing typed is lost.
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden'){clearTimeout(remoteSyncTimer);syncFullNotes();}
+});
 
 async function loadFullNotes(){
   const local=localRead(FULL_NOTES_STORAGE_KEY,normaliseNotes);
@@ -281,13 +289,22 @@ function renderEditor(){
   if(!n){t.value='';c.value='';return;}
   t.value=n.title||'';c.value=n.content||'';autoSize(t);autoSize(c);updateWordCount();
 }
+function isMobileView(){return matchMedia('(max-width:760px)').matches;}
+function openMobileNoteEditor(){
+  document.getElementById('notes-editor-pane').classList.add('mobile-open');
+  document.body.classList.add('note-editing');
+  if(isMobileView()&&!mobileNoteHistoryPushed){
+    history.pushState({notesView:'editor'},'');
+    mobileNoteHistoryPushed=true;
+  }
+}
 function openFullNote(id){
   if(!fullNotes.find(n=>n.id===id))return;
-  fullNotesActiveId=id;renderFullNotesList();renderEditor();document.getElementById('notes-editor-pane').classList.add('mobile-open');setNotesSaveState('Ready');
-  if(matchMedia('(max-width:760px)').matches)setTimeout(()=>document.getElementById('full-note-content')?.focus(),230);
+  fullNotesActiveId=id;renderFullNotesList();renderEditor();openMobileNoteEditor();setNotesSaveState('Ready');
+  if(isMobileView())setTimeout(()=>document.getElementById('full-note-content')?.focus(),230);
 }
 function createFullNote(){
-  const n=makeFullNote('Untitled');fullNotes.unshift(n);fullNotesActiveId=n.id;persistLocal();renderFullNotesList();renderEditor();document.getElementById('notes-editor-pane').classList.add('mobile-open');setNotesSaveState('Saved locally');syncFullNotes();
+  const n=makeFullNote('Untitled');fullNotes.unshift(n);fullNotesActiveId=n.id;persistLocal();renderFullNotesList();renderEditor();openMobileNoteEditor();setNotesSaveState('Saved locally');syncFullNotes();
   setTimeout(()=>document.getElementById('full-note-title')?.focus(),50);
 }
 function deleteFullNote(){
@@ -300,7 +317,7 @@ function deleteFullNote(){
 function restoreFullNote(id){
   const n=fullNotesTrash.find(x=>x.id===id);if(!n)return;
   fullNotesTrash=fullNotesTrash.filter(x=>x.id!==id);delete n.deletedAt;n.updatedAt=now();fullNotes.unshift(n);fullNotesActiveId=n.id;
-  persistLocal();renderFullNotesList();renderEditor();renderTrash();closeTrash();document.getElementById('notes-editor-pane').classList.add('mobile-open');syncFullNotes();
+  persistLocal();renderFullNotesList();renderEditor();renderTrash();closeTrash();openMobileNoteEditor();syncFullNotes();
 }
 function deleteTrashForever(id){
   const n=fullNotesTrash.find(x=>x.id===id);if(!n)return;
@@ -309,7 +326,15 @@ function deleteTrashForever(id){
 }
 function openTrash(){renderTrash();document.getElementById('trash-modal').classList.add('open');document.getElementById('trash-modal').setAttribute('aria-hidden','false');}
 function closeTrash(){document.getElementById('trash-modal').classList.remove('open');document.getElementById('trash-modal').setAttribute('aria-hidden','true');}
-function closeMobileNoteEditor(){document.getElementById('notes-editor-pane').classList.remove('mobile-open');document.getElementById('full-note-content')?.blur();}
+function closeMobileNoteEditor(fromPopState){
+  document.getElementById('notes-editor-pane').classList.remove('mobile-open');
+  document.getElementById('full-note-content')?.blur();
+  document.body.classList.remove('note-editing');
+  if(mobileNoteHistoryPushed){
+    mobileNoteHistoryPushed=false;
+    if(!fromPopState)history.back();
+  }
+}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
 
 function applyNotesTheme(theme){
@@ -356,6 +381,11 @@ document.addEventListener('keydown',e=>{
   }
 });
 window.addEventListener('resize',applyMobileFont);
+window.addEventListener('popstate',()=>{
+  if(document.getElementById('notes-editor-pane').classList.contains('mobile-open')){
+    closeMobileNoteEditor(true);
+  }
+});
 
 (async()=>{
   let saved='light';try{saved=localStorage.getItem(FULL_NOTES_THEME_KEY)||'light';}catch{}

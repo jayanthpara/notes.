@@ -204,6 +204,9 @@ function localRead(key,fn){try{const r=localStorage.getItem(key);return r?fn(JSO
 function persistLocal(){
   try{localStorage.setItem(FULL_NOTES_STORAGE_KEY,JSON.stringify(fullNotes));localStorage.setItem(FULL_NOTES_TRASH_KEY,JSON.stringify(fullNotesTrash));}catch{}
 }
+function clearLocalNotesCache(){
+  try{localStorage.removeItem(FULL_NOTES_STORAGE_KEY);localStorage.removeItem(FULL_NOTES_TRASH_KEY);}catch{}
+}
 function setNotesSaveState(t){const e=document.getElementById('notes-save-state');if(e)e.textContent=t;}
 function queueListRender(){
   if(renderListFrame)return;
@@ -240,18 +243,27 @@ function localMutationSync(value){
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='hidden'){clearTimeout(remoteSyncTimer);syncFullNotes();}
 });
+// The cloud is the single source of truth across devices. The local copy is
+// only a same-tab offline fallback, so it must not survive the tab closing -
+// otherwise a stale local cache can outlive and shadow newer cloud data the
+// next time the app loads (which was the source of the inconsistency bug).
+window.addEventListener('pagehide',clearLocalNotesCache);
 
 async function loadFullNotes(){
-  const local=localRead(FULL_NOTES_STORAGE_KEY,normaliseNotes);
-  const trashLocal=localRead(FULL_NOTES_TRASH_KEY,normaliseTrash);
-  fullNotes=local;fullNotesTrash=trashLocal;
   try{
     const remote=await apiFetch('/notes');
     if(remote&&Array.isArray(remote.tabs)){
-      if(!fullNotes.length)fullNotes=normaliseNotes(remote.tabs);
-      if(Array.isArray(remote.trash)&&!fullNotesTrash.length)fullNotesTrash=normaliseTrash(remote.trash);
+      fullNotes=normaliseNotes(remote.tabs);
+      fullNotesTrash=Array.isArray(remote.trash)?normaliseTrash(remote.trash):[];
+    }else{
+      fullNotes=[];fullNotesTrash=[];
     }
-  }catch{}
+  }catch{
+    // Cloud unreachable (offline) - fall back to whatever was cached locally
+    // during this session only. Once the cloud responds again, its data wins.
+    fullNotes=localRead(FULL_NOTES_STORAGE_KEY,normaliseNotes);
+    fullNotesTrash=localRead(FULL_NOTES_TRASH_KEY,normaliseTrash);
+  }
   if(!fullNotes.length)fullNotes=[makeFullNote('My First Note')];
   persistLocal();
 }

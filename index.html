@@ -1,3 +1,4 @@
+
   <!DOCTYPE html>
   <html lang="en">
   <head>
@@ -205,6 +206,9 @@
   function persistLocal(){
     try{localStorage.setItem(FULL_NOTES_STORAGE_KEY,JSON.stringify(fullNotes));localStorage.setItem(FULL_NOTES_TRASH_KEY,JSON.stringify(fullNotesTrash));}catch{}
   }
+  function clearLocalNotesCache(){
+    try{localStorage.removeItem(FULL_NOTES_STORAGE_KEY);localStorage.removeItem(FULL_NOTES_TRASH_KEY);}catch{}
+  }
   function setNotesSaveState(t){const e=document.getElementById('notes-save-state');if(e)e.textContent=t;}
   function queueListRender(){
     if(renderListFrame)return;
@@ -223,6 +227,8 @@
    *    mutation from this browser into that latest cloud copy before PUT.
    *    This prevents one browser with 3 notes from replacing another browser's
    *    6 notes with its older 3-note local array.
+   * 4. Sync calls are serialized (see syncQueue below) so two overlapping
+   *    edits can't race each other's fetch->merge->PUT cycle.
    */
   function cloneNote(n){
     return {
@@ -255,7 +261,18 @@
     return list.filter(n=>n.id!==id);
   }
 
-  async function syncFullNotes(mutation){
+  // Sync calls are serialized: each fetch->merge->PUT cycle must finish
+  // before the next one starts. Without this, editing two notes in quick
+  // succession could let a later sync fetch the cloud *before* an earlier
+  // sync's PUT has landed, silently dropping that earlier edit - the same
+  // class of bug as the "3 notes overwrite 6" one, just narrower in scope.
+  let syncQueue=Promise.resolve();
+  function syncFullNotes(mutation){
+    syncQueue=syncQueue.then(()=>performSync(mutation)).catch(()=>{});
+    return syncQueue;
+  }
+
+  async function performSync(mutation){
     persistLocal();
     setNotesSaveState('Syncing…');
 
@@ -329,6 +346,9 @@
       if(n)syncFullNotes({type:'upsert',note:n});
     }
   });
+  // The cloud is the single source of truth across devices. The local copy is
+  // only a same-tab offline fallback, so it must not survive the tab closing.
+  window.addEventListener('pagehide',clearLocalNotesCache);
 
   async function loadFullNotes(){
     const local=localRead(FULL_NOTES_STORAGE_KEY,normaliseNotes);
@@ -532,4 +552,3 @@
   </script>
   </body>
   </html>
-  
